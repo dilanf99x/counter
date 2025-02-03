@@ -38,33 +38,43 @@ INSERT INTO products (GTIN, ProductName, ProductCategory, Batch, BestBefore, exp
     ('7090052090018', 'Glöd Sophie Elise Self Tan Mousse - Dark', 'Glöd Sophie Elise', 'BATCH003', '2029-02-03T09:30:00Z', 200, NULL, 'open', 'FPACK');
 `);
 
-// Get all warehouse counts
-app.get('/api/counts', async (req, res) => {
+// Get all warehouse products
+app.get('/api/products', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM warehouse_counts');
+        const result = await pool.query('SELECT * FROM products');
         res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Add a new warehouse count
-app.post('/api/counts', async (req, res) => {
-    const { item, quantity } = req.body;
-    if (!item || quantity == null) {
-        return res.status(400).json({ error: 'Item and quantity are required' });
-    }
-
-    try {
-        const result = await pool.query(
-            'INSERT INTO warehouse_counts (item, quantity) VALUES ($1, $2) RETURNING *',
-            [item, quantity]
-        );
-        res.json({ message: 'Count added', data: result.rows[0] });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+//// Get all warehouse counts
+//app.get('/api/counts', async (req, res) => {
+//    try {
+//        const result = await pool.query('SELECT * FROM warehouse_counts');
+//        res.json(result.rows);
+//    } catch (error) {
+//        res.status(500).json({ error: error.message });
+//    }
+//});
+//
+//// Add a new warehouse count
+//app.post('/api/counts', async (req, res) => {
+//    const { item, quantity } = req.body;
+//    if (!item || quantity == null) {
+//        return res.status(400).json({ error: 'Item and quantity are required' });
+//    }
+//
+//    try {
+//        const result = await pool.query(
+//            'INSERT INTO warehouse_counts (item, quantity) VALUES ($1, $2) RETURNING *',
+//            [item, quantity]
+//        );
+//        res.json({ message: 'Count added', data: result.rows[0] });
+//    } catch (error) {
+//        res.status(500).json({ error: error.message });
+//    }
+//});
 
 // Start the server
 const PORT = process.env.PORT || 3000;
