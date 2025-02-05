@@ -15,20 +15,19 @@ const pool = new Pool({
 
 // Create table if not exists
 pool.query(`
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
     GTIN VARCHAR(50) PRIMARY KEY,
     ProductName TEXT NOT NULL,
     ProductCategory TEXT NOT NULL,
     Batch VARCHAR(50),
     BestBefore TIMESTAMP,
     Quantity INT NOT NULL,
-    expectedQuantity INT NOT NULL,
     UnitOfMeasure TEXT
 );
 `);
 
 pool.query(`
-CREATE TABLE counting_tasks (
+CREATE TABLE IF NOT EXISTS counting_tasks (
     countingTaskId VARCHAR(20) PRIMARY KEY,
     creationDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     assignedToUserId VARCHAR(50),
@@ -39,7 +38,7 @@ CREATE TABLE counting_tasks (
 `);
 
 pool.query(`
-CREATE TABLE counting_task_items (
+CREATE TABLE IF NOT EXISTS counting_task_items (
     id SERIAL PRIMARY KEY,
     countingTaskId VARCHAR(20) REFERENCES counting_tasks(countingTaskId) ON DELETE CASCADE,
     GTIN VARCHAR(50) REFERENCES products(GTIN) ON DELETE CASCADE,
@@ -47,6 +46,22 @@ CREATE TABLE counting_task_items (
     countedQuantity INT DEFAULT NULL,
     countedStatus VARCHAR(20) CHECK (countedStatus IN ('open', 'counted'))
 );
+`);
+
+pool.query(`
+CREATE TABLE IF NOT EXISTS products (
+    GTIN VARCHAR(50) PRIMARY KEY,
+    ProductName TEXT NOT NULL,
+    ProductCategory TEXT NOT NULL,
+    Batch VARCHAR(50),
+    BestBefore TIMESTAMP,
+    Quantity INT NOT NULL,
+    UnitOfMeasure TEXT
+);
+`);
+
+pool.query(`
+ALTER TABLE products ADD COLUMN expectedquantity INTEGER;
 `);
 
 // insert data
