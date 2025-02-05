@@ -60,10 +60,6 @@ CREATE TABLE IF NOT EXISTS products (
 );
 `);
 
-pool.query(`
-ALTER TABLE products ADD COLUMN expectedquantity INTEGER;
-`);
-
 // insert data
 pool.query(`
 INSERT INTO products (GTIN, ProductName, ProductCategory, Batch, BestBefore, expectedQuantity, countedQuantity, countedStatus, unitOfMeasure) VALUES
