@@ -22,6 +22,7 @@ CREATE TABLE products (
     Batch VARCHAR(50),
     BestBefore TIMESTAMP,
     Quantity INT NOT NULL,
+    expectedQuantity INT NOT NULL,
     UnitOfMeasure TEXT
 );
 `);
