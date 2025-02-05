@@ -48,18 +48,6 @@ CREATE TABLE IF NOT EXISTS counting_task_items (
 );
 `);
 
-pool.query(`
-CREATE TABLE IF NOT EXISTS products (
-    GTIN VARCHAR(50) PRIMARY KEY,
-    ProductName TEXT NOT NULL,
-    ProductCategory TEXT NOT NULL,
-    Batch VARCHAR(50),
-    BestBefore TIMESTAMP,
-    Quantity INT NOT NULL,
-    UnitOfMeasure TEXT
-);
-`);
-
 // insert data
 pool.query(`
 INSERT INTO products (GTIN, ProductName, ProductCategory, Batch, BestBefore, Quantity, unitOfMeasure) VALUES
