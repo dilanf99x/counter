@@ -48,15 +48,15 @@ CREATE TABLE IF NOT EXISTS counting_task_items (
 );
 `);
 
-// insert data
-pool.query(`
-INSERT INTO products (GTIN, ProductName, ProductCategory, Batch, BestBefore, Quantity, unitOfMeasure) VALUES
-    ('7090052090008', 'Glöd Sophie Elise Self Tan Express Foam', 'Glöd Sophie Elise', 'TMSKDSFJ', '2029-02-03T09:30:00Z', 150, 'FPACK'),
-    ('7090052090015', 'Glöd Sophie Elise Self Tan Remover Gel', 'Glöd Sophie Elise', 'HGSKDUFM', '2029-02-03T09:30:00Z', 150, 'FPACK'),
-    ('7090052090016', 'Glöd Sophie Elise Self Tan Mousse - Light', 'Glöd Sophie Elise', 'BATCH001', '2029-02-03T09:30:00Z', 120, 'FPACK'),
-    ('7090052090017', 'Glöd Sophie Elise Self Tan Mousse - Medium', 'Glöd Sophie Elise', 'BATCH002', '2029-02-03T09:30:00Z', 100, 'FPACK'),
-    ('7090052090018', 'Glöd Sophie Elise Self Tan Mousse - Dark', 'Glöd Sophie Elise', 'BATCH003', '2029-02-03T09:30:00Z', 200, 'FPACK');
-`);
+//// insert data
+//pool.query(`
+//INSERT INTO products (GTIN, ProductName, ProductCategory, Batch, BestBefore, Quantity, unitOfMeasure) VALUES
+//    ('7090052090008', 'Glöd Sophie Elise Self Tan Express Foam', 'Glöd Sophie Elise', 'TMSKDSFJ', '2029-02-03T09:30:00Z', 150, 'FPACK'),
+//    ('7090052090015', 'Glöd Sophie Elise Self Tan Remover Gel', 'Glöd Sophie Elise', 'HGSKDUFM', '2029-02-03T09:30:00Z', 150, 'FPACK'),
+//    ('7090052090016', 'Glöd Sophie Elise Self Tan Mousse - Light', 'Glöd Sophie Elise', 'BATCH001', '2029-02-03T09:30:00Z', 120, 'FPACK'),
+//    ('7090052090017', 'Glöd Sophie Elise Self Tan Mousse - Medium', 'Glöd Sophie Elise', 'BATCH002', '2029-02-03T09:30:00Z', 100, 'FPACK'),
+//    ('7090052090018', 'Glöd Sophie Elise Self Tan Mousse - Dark', 'Glöd Sophie Elise', 'BATCH003', '2029-02-03T09:30:00Z', 200, 'FPACK');
+//`);
 
 // Get all warehouse products
 app.get('/api/products', async (req, res) => {
