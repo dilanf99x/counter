@@ -80,7 +80,7 @@ app.post("/api/tasks", async (req, res) => {
       [assignedTo.userId, assignedTo.userName, location]
     );
 
-    const countingTaskId = taskResult.rows[0].countingTaskId;
+    const countingTaskId = taskResult.rows[0].countingtaskid;
 
     for (const product of productsToCount) {
       await pool.query(
