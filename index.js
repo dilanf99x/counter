@@ -101,10 +101,45 @@ app.post("/api/tasks", async (req, res) => {
 // **2. Retrieve all open tasks**
 app.get("/api/tasks", async (req, res) => {
   try {
-    const result = await pool.query(
+    // Fetch all tasks
+    const tasksResult = await pool.query(
       `SELECT * FROM counting_tasks WHERE status = 'open'`
     );
-    res.json(result.rows);
+
+    const tasks = tasksResult.rows;
+
+    if (tasks.length === 0) {
+      return res.json([]); // Return an empty array if no tasks exist
+    }
+
+    // Get all task IDs
+    const taskIds = tasks.map(task => task.countingtaskid);
+
+    // Fetch associated products for the retrieved tasks
+    const productsResult = await pool.query(
+      `SELECT cti.countingTaskId, cti.GTIN, p.ProductName, cti.expectedQuantity, cti.countedQuantity, cti.countedStatus
+       FROM counting_task_items cti
+       JOIN products p ON cti.GTIN = p.GTIN
+       WHERE cti.countingTaskId = ANY($1)`,
+      [taskIds]
+    );
+
+    // Group products by their respective task
+    const productsByTask = {};
+    productsResult.rows.forEach(product => {
+      if (!productsByTask[product.countingtaskid]) {
+        productsByTask[product.countingtaskid] = [];
+      }
+      productsByTask[product.countingtaskid].push(product);
+    });
+
+    // Attach products to their respective tasks
+    const tasksWithProducts = tasks.map(task => ({
+      ...task,
+      products: productsByTask[task.countingtaskid] || []
+    }));
+
+    res.json(tasksWithProducts);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
