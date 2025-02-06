@@ -80,13 +80,13 @@ app.post("/api/tasks", async (req, res) => {
       [assignedTo.userId, assignedTo.userName, location]
     );
 
-    const taskId = taskResult.rows[0].countingTaskId;
+    const countingTaskId = taskResult.rows[0].countingTaskId;
 
     for (const product of productsToCount) {
       await pool.query(
-        `INSERT INTO counting_task_items (taskId, GTIN, expectedQuantity, countedStatus)
+        `INSERT INTO counting_task_items (countingTaskId, GTIN, expectedQuantity, countedStatus)
          VALUES ($1, $2, $3, 'open')`,
-        [taskId, product.GTIN, product.expectedQuantity]
+        [countingTaskId, product.GTIN, product.expectedQuantity]
       );
     }
 
