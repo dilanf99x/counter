@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS counting_tasks (
 pool.query(`
 CREATE TABLE IF NOT EXISTS counting_task_items (
     id SERIAL PRIMARY KEY,
-    countingTaskId VARCHAR(20) REFERENCES counting_tasks(countingTaskId) ON DELETE CASCADE,
+    countingTaskId INTEGER REFERENCES counting_tasks(countingTaskId) ON DELETE CASCADE,
     GTIN VARCHAR(50) REFERENCES products(GTIN) ON DELETE CASCADE,
     expectedQuantity INT NOT NULL,
     countedQuantity INT DEFAULT NULL,
@@ -76,9 +76,11 @@ app.post("/api/tasks", async (req, res) => {
 
     await pool.query(
       `INSERT INTO counting_tasks (assignedToUserId, assignedToUserName, location, status)
-       VALUES ($1, $2, $3, 'open')`,
+       VALUES ($1, $2, $3, 'open') RETURNING countingTaskId`,
       [assignedTo.userId, assignedTo.userName, location]
     );
+
+    const countingTaskId = taskResult.rows[0].countingTaskId;
 
     for (const product of productsToCount) {
       await pool.query(
@@ -89,7 +91,7 @@ app.post("/api/tasks", async (req, res) => {
     }
 
     await pool.query("COMMIT");
-    res.status(201).json({ message: "Task created successfully" });
+    res.status(201).json({ message: "Task created successfully", taskId: countingTaskId  });
   } catch (error) {
     await pool.query("ROLLBACK");
     res.status(500).json({ error: error.message });
