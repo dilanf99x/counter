@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS products (
 
 pool.query(`
 CREATE TABLE IF NOT EXISTS counting_tasks (
-    countingTaskId VARCHAR(20) PRIMARY KEY,
+    countingTaskId SERIAL PRIMARY KEY,
     creationDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     assignedToUserId VARCHAR(50),
     assignedToUserName TEXT,
@@ -70,14 +70,14 @@ app.get('/api/products', async (req, res) => {
 
 // **1. Create a counting task**
 app.post("/api/tasks", async (req, res) => {
-  const { countingTaskId, assignedTo, location, productsToCount } = req.body;
+  const { assignedTo, location, productsToCount } = req.body;
   try {
     await pool.query("BEGIN");
 
     await pool.query(
-      `INSERT INTO counting_tasks (countingTaskId, assignedToUserId, assignedToUserName, location, status)
-       VALUES ($1, $2, $3, $4, 'open')`,
-      [countingTaskId, assignedTo.userId, assignedTo.userName, location]
+      `INSERT INTO counting_tasks (assignedToUserId, assignedToUserName, location, status)
+       VALUES ($1, $2, $3, 'open')`,
+      [assignedTo.userId, assignedTo.userName, location]
     );
 
     for (const product of productsToCount) {
