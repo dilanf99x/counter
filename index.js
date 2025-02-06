@@ -103,7 +103,7 @@ app.get("/api/tasks", async (req, res) => {
   try {
     // Fetch all tasks
     const tasksResult = await pool.query(
-      `SELECT * FROM counting_tasks WHERE status = 'open'`
+      `SELECT * FROM counting_tasks` //WHERE status = 'open'
     );
 
     const tasks = tasksResult.rows;
