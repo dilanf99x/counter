@@ -193,12 +193,12 @@ app.delete("/api/tasks/:taskId/complete", async (req, res) => {
     console.log("countedItems " + JSON.stringify(countedItems))
 
     for (const item of countedItems.rows) {
-      if (item.countedQuantity !== null) {
+      if (item.countedquantity !== null) {
         await pool.query(
           `UPDATE products
            SET Quantity = Quantity + $1
            WHERE GTIN = $2`,
-          [item.countedQuantity, item.GTIN]
+          [item.countedquantity, item.gtin]
         );
       }
     }
