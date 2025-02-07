@@ -191,16 +191,25 @@ app.delete("/api/tasks/:taskId/complete", async (req, res) => {
     );
 
     for (const item of countedItems.rows) {
-      await pool.query(
-        `UPDATE products SET Quantity = $1 WHERE GTIN = $2`,
-        [item.countedQuantity, item.GTIN]
-      );
+      if (item.countedQuantity !== null) {
+        await pool.query(
+          `UPDATE products
+           SET Quantity = Quantity + $1
+           WHERE GTIN = $2`,
+          [item.countedQuantity, item.GTIN]
+        );
+      }
     }
+
+    await pool.query(
+      `DELETE FROM counting_task_items WHERE countingTaskId = $1`,
+      [req.params.taskId]
+    );
 
     await pool.query(
       `DELETE FROM counting_tasks WHERE countingTaskId = $1`,
       [req.params.taskId]
-    );
+    ); 
 
     await pool.query("COMMIT");
     res.json({ message: "Task completed and removed" });
