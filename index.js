@@ -189,6 +189,7 @@ app.delete("/api/tasks/:taskId/complete", async (req, res) => {
       `SELECT GTIN, countedQuantity FROM counting_task_items WHERE countingTaskId = $1`,
       [req.params.taskId]
     );
+    console.log("countedItems " + countedItems)
 
     for (const item of countedItems.rows) {
       if (item.countedQuantity !== null) {
