@@ -237,7 +237,7 @@ app.delete("/api/tasks/:taskId/delete", async (req, res) => {
     );
 
     await pool.query("COMMIT");
-    res.json({ message: "Task completed and removed" });
+    res.json({ message: "Task deleted!" });
   } catch (error) {
     await pool.query("ROLLBACK");
     res.status(500).json({ error: error.message });
