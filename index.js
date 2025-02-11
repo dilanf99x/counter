@@ -221,6 +221,29 @@ app.delete("/api/tasks/:taskId/complete", async (req, res) => {
   }
 });
 
+// **5. Delete a counting task**
+app.delete("/api/tasks/:taskId/delete", async (req, res) => {
+  try {
+    await pool.query("BEGIN");
+
+    await pool.query(
+      `DELETE FROM counting_task_items WHERE countingTaskId = $1`,
+      [req.params.taskId]
+    );
+
+    await pool.query(
+      `DELETE FROM counting_tasks WHERE countingTaskId = $1`,
+      [req.params.taskId]
+    );
+
+    await pool.query("COMMIT");
+    res.json({ message: "Task completed and removed" });
+  } catch (error) {
+    await pool.query("ROLLBACK");
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
