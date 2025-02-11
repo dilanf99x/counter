@@ -169,7 +169,7 @@ app.put("/api/tasks/:taskId/start", async (req, res) => {
 app.put("/api/tasks/:taskId/unassign", async (req, res) => {
   try {
     await pool.query(
-      `UPDATE counting_tasks SET status = 'in_progress', assignedToUserId = NULL, assignedToUserName = NULL
+      `UPDATE counting_tasks SET status = 'open', assignedToUserId = NULL, assignedToUserName = NULL
         WHERE countingTaskId = $1`,
       [req.params.taskId]
     );
