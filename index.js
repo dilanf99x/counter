@@ -148,10 +148,15 @@ app.get("/api/tasks", async (req, res) => {
 // **3. Start a counting task**
 app.put("/api/tasks/:taskId/start", async (req, res) => {
   try {
-    await pool.query(
-      `UPDATE counting_tasks SET status = 'in_progress', assignedToUserId = $2, assignedToUserName = $3
-        WHERE countingTaskId = $1`,
-      [req.params.taskId, assignedTo.userId, assignedTo.userName]
+    const { assignedTo } = req.body;
+
+     await pool.query(
+      `UPDATE counting_tasks
+       SET status = 'in_progress',
+           assignedToUserId = $2,
+           assignedToUserName = $3
+       WHERE countingTaskId = $1`,
+      [req.params.taskId, assignedTo?.userId || null, assignedTo?.userName || null]
     );
 
     res.json({ message: "Task started" });
