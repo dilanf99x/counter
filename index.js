@@ -149,9 +149,26 @@ app.get("/api/tasks", async (req, res) => {
 app.put("/api/tasks/:taskId/start", async (req, res) => {
   try {
     await pool.query(
-      `UPDATE counting_tasks SET status = 'in_progress' WHERE countingTaskId = $1`,
+      `UPDATE counting_tasks SET status = 'in_progress', assignedToUserId = $2, assignedToUserName = $3
+        WHERE countingTaskId = $1`,
+      [req.params.taskId, assignedTo.userId, assignedTo.userName]
+    );
+
+    res.json({ message: "Task started" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// **3. Unassign a counting task**
+app.put("/api/tasks/:taskId/unassign", async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE counting_tasks SET status = 'in_progress', assignedToUserId = NULL, assignedToUserName = NULL
+        WHERE countingTaskId = $1`,
       [req.params.taskId]
     );
+
     res.json({ message: "Task started" });
   } catch (error) {
     res.status(500).json({ error: error.message });
