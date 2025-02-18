@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS counting_tasks (
     assignedToUserId VARCHAR(50),
     assignedToUserName TEXT,
     location TEXT NOT NULL,
-    status VARCHAR(20) CHECK (status IN ('open', 'in_progress', 'completed')) NOT NULL
+    status VARCHAR(20) CHECK (status IN ('open', 'in_progress', 'completed', 'await_approval', 'approved', 'recheck')) NOT NULL
 );
 `);
 
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS counting_task_items (
     GTIN VARCHAR(50) REFERENCES products(GTIN) ON DELETE CASCADE,
     expectedQuantity INT NOT NULL,
     countedQuantity INT DEFAULT NULL,
-    countedStatus VARCHAR(20) CHECK (countedStatus IN ('open', 'counted'))
+    countedStatus VARCHAR(20) CHECK (countedStatus IN ('open', 'counted', 'await_approval', 'approved', 'recheck'))
 );
 `);
 
@@ -70,200 +70,379 @@ app.get('/api/products', async (req, res) => {
 
 // **1. Create a counting task**
 app.post("/api/tasks", async (req, res) => {
-  const { location, productsToCount } = req.body;
-  try {
-    await pool.query("BEGIN");
+    const {location, productsToCount} = req.body;
+    try {
+        await pool.query("BEGIN");
 
-    const taskResult = await pool.query(
-      `INSERT INTO counting_tasks (location, status)
+        const taskResult = await pool.query(
+            `INSERT INTO counting_tasks (location, status)
        VALUES ($1, 'open') RETURNING countingTaskId`,
-      [location]
-    );
+            [location]
+        );
 
-    const countingTaskId = taskResult.rows[0].countingtaskid;
+        const countingTaskId = taskResult.rows[0].countingtaskid;
 
-    for (const product of productsToCount) {
-      await pool.query(
-        `INSERT INTO counting_task_items (countingTaskId, GTIN, expectedQuantity, countedStatus)
+        for (const product of productsToCount) {
+            await pool.query(
+                `INSERT INTO counting_task_items (countingTaskId, GTIN, expectedQuantity, countedStatus)
          VALUES ($1, $2, $3, 'open')`,
-        [countingTaskId, product.GTIN, product.expectedQuantity]
-      );
-    }
+                [countingTaskId, product.GTIN, product.expectedQuantity]
+            );
+        }
 
-    await pool.query("COMMIT");
-    res.status(201).json({ message: "Task created successfully", taskId: countingTaskId  });
-  } catch (error) {
-    await pool.query("ROLLBACK");
-    res.status(500).json({ error: error.message });
-  }
+        await pool.query("COMMIT");
+        res.status(201).json({message: "Task created successfully", taskId: countingTaskId});
+    } catch (error) {
+        await pool.query("ROLLBACK");
+        res.status(500).json({error: error.message});
+    }
 });
 
 // **2. Retrieve all open tasks**
 app.get("/api/tasks", async (req, res) => {
-  try {
-    // Fetch all tasks
-    const tasksResult = await pool.query(
-      `SELECT * FROM counting_tasks` //WHERE status = 'open'
-    );
+    try {
+        // Fetch all tasks
+        const tasksResult = await pool.query(
+            `SELECT * FROM counting_tasks` //WHERE status = 'open'
+        );
 
-    const tasks = tasksResult.rows;
+        const tasks = tasksResult.rows;
 
-    if (tasks.length === 0) {
-      return res.json([]); // Return an empty array if no tasks exist
-    }
+        if (tasks.length === 0) {
+            return res.json([]); // Return an empty array if no tasks exist
+        }
 
-    // Get all task IDs
-    const taskIds = tasks.map(task => task.countingtaskid);
+        // Get all task IDs
+        const taskIds = tasks.map(task => task.countingtaskid);
 
-    // Fetch associated products for the retrieved tasks
-    const productsResult = await pool.query(
-      `SELECT cti.countingTaskId, cti.GTIN, p.ProductName, cti.expectedQuantity, cti.countedQuantity, cti.countedStatus
+        // Fetch associated products for the retrieved tasks
+        const productsResult = await pool.query(
+            `SELECT cti.countingTaskId, cti.GTIN, p.ProductName, cti.expectedQuantity, cti.countedQuantity, cti.countedStatus
        FROM counting_task_items cti
        JOIN products p ON cti.GTIN = p.GTIN
        WHERE cti.countingTaskId = ANY($1)`,
-      [taskIds]
-    );
+            [taskIds]
+        );
 
-    // Group products by their respective task
-    const productsByTask = {};
-    productsResult.rows.forEach(product => {
-      if (!productsByTask[product.countingtaskid]) {
-        productsByTask[product.countingtaskid] = [];
-      }
-      productsByTask[product.countingtaskid].push(product);
-    });
+        // Group products by their respective task
+        const productsByTask = {};
+        productsResult.rows.forEach(product => {
+            if (!productsByTask[product.countingtaskid]) {
+                productsByTask[product.countingtaskid] = [];
+            }
+            productsByTask[product.countingtaskid].push(product);
+        });
 
-    // Attach products to their respective tasks
-    const tasksWithProducts = tasks.map(task => ({
-      ...task,
-      products: productsByTask[task.countingtaskid] || []
-    }));
+        // Attach products to their respective tasks
+        const tasksWithProducts = tasks.map(task => ({
+            ...task,
+            products: productsByTask[task.countingtaskid] || []
+        }));
 
-    res.json(tasksWithProducts);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+        res.json(tasksWithProducts);
+    } catch (error) {
+        res.status(500).json({error: error.message});
+    }
 });
 
 // **3. Start a counting task**
 app.put("/api/tasks/:taskId/start", async (req, res) => {
-  try {
-    const { assignedTo } = req.body;
+    try {
+        const {assignedTo} = req.body;
 
-     await pool.query(
-      `UPDATE counting_tasks
+        await pool.query(
+            `UPDATE counting_tasks
        SET status = 'in_progress',
            assignedToUserId = $2,
            assignedToUserName = $3
        WHERE countingTaskId = $1`,
-      [req.params.taskId, assignedTo?.userId || null, assignedTo?.userName || null]
-    );
+            [req.params.taskId, assignedTo?.userId || null, assignedTo?.userName || null]
+        );
 
-    res.json({ message: "Task started" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+        res.json({message: "Task started"});
+    } catch (error) {
+        res.status(500).json({error: error.message});
+    }
 });
 
 // **3. Unassign a counting task**
 app.put("/api/tasks/:taskId/unassign", async (req, res) => {
-  try {
-    await pool.query(
-      `UPDATE counting_tasks SET status = 'open', assignedToUserId = NULL, assignedToUserName = NULL
+    try {
+        await pool.query(
+            `UPDATE counting_tasks SET status = 'open', assignedToUserId = NULL, assignedToUserName = NULL
         WHERE countingTaskId = $1`,
-      [req.params.taskId]
-    );
+            [req.params.taskId]
+        );
 
-    res.json({ message: "Task Unassigned" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+        res.json({message: "Task Unassigned"});
+    } catch (error) {
+        res.status(500).json({error: error.message});
+    }
 });
 
 // **4. Update counted product quantities**
 app.put("/api/tasks/:taskId/count", async (req, res) => {
-  const { productsCounted } = req.body;
-  try {
-    await pool.query("BEGIN");
+    const {productsCounted} = req.body;
+    try {
+        await pool.query("BEGIN");
 
-    for (const item of productsCounted) {
-      await pool.query(
-        `UPDATE counting_task_items SET countedQuantity = $1, countedStatus = 'counted'
+        console.log("productsCounted " + JSON.stringify(productsCounted))
+
+        for (const item of productsCounted) {
+            await pool.query(
+                `UPDATE counting_task_items SET countedQuantity = $1, countedStatus = 'counted'
          WHERE countingTaskId = $2 AND GTIN = $3`,
-        [item.countedQuantity, req.params.taskId, item.GTIN]
-      );
-    }
+                [item.countedQuantity, req.params.taskId, item.GTIN]
+            );
+        }
 
-    await pool.query("COMMIT");
-    res.json({ message: "Count updated successfully" });
-  } catch (error) {
-    await pool.query("ROLLBACK");
-    res.status(500).json({ error: error.message });
-  }
+        await pool.query("COMMIT");
+        res.json({message: "Count updated successfully"});
+    } catch (error) {
+        await pool.query("ROLLBACK");
+        res.status(500).json({error: error.message});
+    }
 });
 
 // **5. Complete a counting task & update products**
 app.delete("/api/tasks/:taskId/complete", async (req, res) => {
-  try {
-    await pool.query("BEGIN");
+    try {
+        await pool.query("BEGIN");
 
-    const countedItems = await pool.query(
-      `SELECT GTIN, countedQuantity FROM counting_task_items WHERE countingTaskId = $1`,
-      [req.params.taskId]
-    );
-    
-    console.log("countedItems " + JSON.stringify(countedItems))
+        const countedItems = await pool.query(
+            `SELECT GTIN, expectedQuantity, countedQuantity FROM counting_task_items WHERE countingTaskId = $1`,
+            [req.params.taskId]
+        );
 
-    for (const item of countedItems.rows) {
-      if (item.countedquantity !== null) {
-        await pool.query(
-          `UPDATE products
+        console.log("countedItems " + JSON.stringify(countedItems.rows))
+
+        let allMatch = true;
+
+        for (const item of countedItems.rows) {
+            console.log("countedItems item " + JSON.stringify(item))
+            if (item.countedquantity !== item.expectedquantity) {
+                allMatch = false;
+                await pool.query(
+                    `UPDATE counting_task_items
+           SET countedStatus = 'await_approval'
+           WHERE countingTaskId = $1 AND GTIN = $2`,
+                    [req.params.taskId, item.gtin]
+                );
+            } else {
+                await pool.query(
+                    `DELETE FROM counting_task_items
+           WHERE countingTaskId = $1 AND GTIN = $2`,
+                    [req.params.taskId, item.gtin]
+                );
+
+                await pool.query(
+                    `UPDATE products
            SET Quantity = $1
            WHERE GTIN = $2`,
-          [item.countedquantity, item.gtin]
+                    [item.countedquantity, item.gtin]
+                );
+            }
+        }
+
+        // If at least one item didn't match, update task status to 'waiting_approval'
+        if (!allMatch) {
+            await pool.query(
+                `UPDATE counting_tasks
+         SET status = 'await_approval'
+         WHERE countingTaskId = $1`,
+                [req.params.taskId]
+            );
+
+            await pool.query("COMMIT");
+            return res.json({
+                message: "Some counted quantities didn't match. Task set to waiting_approval.",
+            });
+        }
+
+        // If all matched, delete the task
+        await pool.query(
+            `DELETE FROM counting_tasks WHERE countingTaskId = $1`,
+            [req.params.taskId]
         );
-      }
+
+        await pool.query("COMMIT");
+        res.json({message: "Task completed and removed successfully."});
+    } catch (error) {
+        await pool.query("ROLLBACK");
+        res.status(500).json({error: error.message});
     }
-
-    await pool.query(
-      `DELETE FROM counting_task_items WHERE countingTaskId = $1`,
-      [req.params.taskId]
-    );
-
-    await pool.query(
-      `DELETE FROM counting_tasks WHERE countingTaskId = $1`,
-      [req.params.taskId]
-    ); 
-
-    await pool.query("COMMIT");
-    res.json({ message: "Task completed and removed" });
-  } catch (error) {
-    await pool.query("ROLLBACK");
-    res.status(500).json({ error: error.message });
-  }
 });
 
-// **5. Delete a counting task**
+// **6. Approve and complete a counting task & update products**
+app.delete("/api/tasks/approve", async (req, res) => {
+    try {
+        const {taskId, gtin} = req.query;
+
+        if (!taskId || !gtin) {
+            return res.status(400).json({error: "taskId and gtin are required"});
+        }
+
+        console.log("Approve task "+taskId+" gtin "+gtin)
+
+        await pool.query("BEGIN");
+
+        const countedItemQuery = await pool.query(
+            `SELECT GTIN, expectedQuantity, countedQuantity FROM counting_task_items WHERE countingTaskId = $1 AND GTIN = $2`,
+            [taskId, gtin]
+        );
+
+        if (countedItemQuery.rowCount === 0) {
+            await pool.query("ROLLBACK");
+            return res.status(404).json({ error: "Item not found" });
+        }
+
+        const countedQuantity = countedItemQuery.rows[0].countedquantity;
+
+        await pool.query(
+            `DELETE FROM counting_task_items
+           WHERE countingTaskId = $1 AND GTIN = $2`,
+            [taskId, gtin]
+        );
+
+        await pool.query(
+            `UPDATE products
+           SET Quantity = $1
+           WHERE GTIN = $2`,
+            [countedQuantity, gtin]
+        );
+
+        const countedItems = await pool.query(
+            `SELECT GTIN, expectedQuantity, countedQuantity FROM counting_task_items WHERE countingTaskId = $1`,
+            [taskId]
+        );
+
+        // If all matched, delete the task
+        if (countedItems.rowCount === 0) {
+            await pool.query(
+                `DELETE FROM counting_tasks WHERE countingTaskId = $1`,
+                [taskId]
+            );
+        }
+
+        await pool.query("COMMIT");
+        res.json({message: "Task approved and completed successfully."});
+    } catch (error) {
+        await pool.query("ROLLBACK");
+        res.status(500).json({error: error.message});
+    }
+});
+
+// **1. Recheck counting task**
+app.post("/api/tasks/recheck", async (req, res) => {
+    const {currentTaskId, location, productsToCount} = req.body;
+    try {
+        await pool.query("BEGIN");
+
+        const taskResult = await pool.query(
+            `INSERT INTO counting_tasks (location, status)
+       VALUES ($1, 'open') RETURNING countingTaskId`,
+            [location]
+        );
+
+        const countingTaskId = taskResult.rows[0].countingtaskid;
+
+        for (const product of productsToCount) {
+            await pool.query(
+                `INSERT INTO counting_task_items (countingTaskId, GTIN, expectedQuantity, countedStatus)
+         VALUES ($1, $2, $3, 'open')`,
+                [countingTaskId, product.GTIN, product.expectedQuantity]
+            );
+
+            await pool.query(
+                `DELETE FROM counting_task_items
+               WHERE countingTaskId = $1 AND GTIN = $2`,
+                [currentTaskId, product.GTIN]
+            );
+        }
+
+        const countedItems = await pool.query(
+            `SELECT GTIN, expectedQuantity, countedQuantity FROM counting_task_items WHERE countingTaskId = $1`,
+            [currentTaskId]
+        );
+
+        // If all matched, delete the task
+        if (countedItems.rowCount === 0) {
+            await pool.query(
+                `DELETE FROM counting_tasks WHERE countingTaskId = $1`,
+                [currentTaskId]
+            );
+        }
+
+        await pool.query("COMMIT");
+        res.status(201).json({message: "Task created successfully", taskId: countingTaskId});
+    } catch (error) {
+        await pool.query("ROLLBACK");
+        res.status(500).json({error: error.message});
+    }
+});
+
+//app.delete("/api/tasks/:taskId/complete", async (req, res) => {
+//  try {
+//    await pool.query("BEGIN");
+//
+//    const countedItems = await pool.query(
+//      `SELECT GTIN, expectedQuantity ,countedQuantity FROM counting_task_items WHERE countingTaskId = $1`,
+//      [req.params.taskId]
+//    );
+//
+//    console.log("countedItems " + JSON.stringify(countedItems))
+//
+//    for (const item of countedItems.rows) {
+//      if (item.countedquantity !== null) {
+//        await pool.query(
+//          `UPDATE products
+//           SET Quantity = $1
+//           WHERE GTIN = $2`,
+//          [item.countedquantity, item.gtin]
+//        );
+//      }
+//    }
+//
+//
+//    await pool.query(
+//      `DELETE FROM counting_task_items WHERE countingTaskId = $1`,
+//      [req.params.taskId]
+//    );
+//
+//    await pool.query(
+//      `DELETE FROM counting_tasks WHERE countingTaskId = $1`,
+//      [req.params.taskId]
+//    );
+//
+//    await pool.query("COMMIT");
+//    res.json({ message: "Task completed and removed" });
+//  } catch (error) {
+//    await pool.query("ROLLBACK");
+//    res.status(500).json({ error: error.message });
+//  }
+//});
+
+// **7. Delete a counting task**
 app.delete("/api/tasks/:taskId/delete", async (req, res) => {
-  try {
-    await pool.query("BEGIN");
+    try {
+        await pool.query("BEGIN");
 
-    await pool.query(
-      `DELETE FROM counting_task_items WHERE countingTaskId = $1`,
-      [req.params.taskId]
-    );
+        await pool.query(
+            `DELETE FROM counting_task_items WHERE countingTaskId = $1`,
+            [req.params.taskId]
+        );
 
-    await pool.query(
-      `DELETE FROM counting_tasks WHERE countingTaskId = $1`,
-      [req.params.taskId]
-    );
+        await pool.query(
+            `DELETE FROM counting_tasks WHERE countingTaskId = $1`,
+            [req.params.taskId]
+        );
 
-    await pool.query("COMMIT");
-    res.json({ message: "Task deleted!" });
-  } catch (error) {
-    await pool.query("ROLLBACK");
-    res.status(500).json({ error: error.message });
-  }
+        await pool.query("COMMIT");
+        res.json({message: "Task deleted!"});
+    } catch (error) {
+        await pool.query("ROLLBACK");
+        res.status(500).json({error: error.message});
+    }
 });
 
 // Start the server
