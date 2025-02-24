@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS counting_tasks (
     countingTaskId SERIAL PRIMARY KEY,
     creationDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     assignedToUserId VARCHAR(50),
+    taskName VARCHAR(50),
+    priority VARCHAR(50),
+    comment VARCHAR(250),
     assignedToUserName TEXT,
     location TEXT NOT NULL,
     status VARCHAR(20) CHECK (status IN ('open', 'in_progress', 'completed', 'await_approval', 'approved', 'recheck')) NOT NULL
@@ -68,16 +71,16 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
-// **1. Create a counting task**
+// // **1. Create a counting task**
 app.post("/api/tasks", async (req, res) => {
-    const {location, productsToCount} = req.body;
+    const {location,taskName, priority,comment, productsToCount} = req.body;
     try {
         await pool.query("BEGIN");
 
         const taskResult = await pool.query(
-            `INSERT INTO counting_tasks (location, status)
-       VALUES ($1, 'open') RETURNING countingTaskId`,
-            [location]
+            `INSERT INTO counting_tasks (location,taskName, priority,comment, status)
+       VALUES ($1, $2, $3, $4, 'open') RETURNING countingTaskId`,
+            [location,taskName, priority,comment]
         );
 
         const countingTaskId = taskResult.rows[0].countingtaskid;
