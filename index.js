@@ -14,42 +14,87 @@ const pool = new Pool({
 });
 
 // Create table if not exists
-pool.query(`
-CREATE TABLE IF NOT EXISTS products (
-    GTIN VARCHAR(50) PRIMARY KEY,
-    ProductName TEXT NOT NULL,
-    ProductCategory TEXT NOT NULL,
-    Batch VARCHAR(50),
-    BestBefore TIMESTAMP,
-    Quantity INT NOT NULL,
-    UnitOfMeasure TEXT
-);
-`);
+//pool.query(`
+//CREATE TABLE IF NOT EXISTS products (
+//    GTIN VARCHAR(50) PRIMARY KEY,
+//    ProductName TEXT NOT NULL,
+//    ProductCategory TEXT NOT NULL,
+//    Batch VARCHAR(50),
+//    BestBefore TIMESTAMP,
+//    Quantity INT NOT NULL,
+//    UnitOfMeasure TEXT
+//);
+//`);
+//
+//pool.query(`
+//CREATE TABLE IF NOT EXISTS counting_tasks (
+//    countingTaskId SERIAL PRIMARY KEY,
+//    creationDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+//    assignedToUserId VARCHAR(50),
+//    taskName VARCHAR(50),
+//    priority VARCHAR(50),
+//    comment VARCHAR(250),
+//    assignedToUserName TEXT,
+//    location TEXT NOT NULL,
+//    status VARCHAR(20) CHECK (status IN ('open', 'in_progress', 'completed', 'await_approval', 'approved', 'recheck')) NOT NULL
+//);
+//`);
+//
+//pool.query(`
+//CREATE TABLE IF NOT EXISTS counting_task_items (
+//    id SERIAL PRIMARY KEY,
+//    countingTaskId INTEGER REFERENCES counting_tasks(countingTaskId) ON DELETE CASCADE,
+//    GTIN VARCHAR(50) REFERENCES products(GTIN) ON DELETE CASCADE,
+//    expectedQuantity INT NOT NULL,
+//    countedQuantity INT DEFAULT NULL,
+//    countedStatus VARCHAR(20) CHECK (countedStatus IN ('open', 'counted', 'await_approval', 'approved', 'recheck'))
+//);
+//`);
 
-pool.query(`
-CREATE TABLE IF NOT EXISTS counting_tasks (
-    countingTaskId SERIAL PRIMARY KEY,
-    creationDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    assignedToUserId VARCHAR(50),
-    taskName VARCHAR(50),
-    priority VARCHAR(50),
-    comment VARCHAR(250),
-    assignedToUserName TEXT,
-    location TEXT NOT NULL,
-    status VARCHAR(20) CHECK (status IN ('open', 'in_progress', 'completed', 'await_approval', 'approved', 'recheck')) NOT NULL
-);
-`);
+(async () => {
+    try {
+        await pool.query(`
+        CREATE TABLE IF NOT EXISTS products (
+            GTIN VARCHAR(50) PRIMARY KEY,
+            ProductName TEXT NOT NULL,
+            ProductCategory TEXT NOT NULL,
+            Batch VARCHAR(50),
+            BestBefore TIMESTAMP,
+            Quantity INT NOT NULL,
+            UnitOfMeasure TEXT
+        );
+        `);
 
-pool.query(`
-CREATE TABLE IF NOT EXISTS counting_task_items (
-    id SERIAL PRIMARY KEY,
-    countingTaskId INTEGER REFERENCES counting_tasks(countingTaskId) ON DELETE CASCADE,
-    GTIN VARCHAR(50) REFERENCES products(GTIN) ON DELETE CASCADE,
-    expectedQuantity INT NOT NULL,
-    countedQuantity INT DEFAULT NULL,
-    countedStatus VARCHAR(20) CHECK (countedStatus IN ('open', 'counted', 'await_approval', 'approved', 'recheck'))
-);
-`);
+        await pool.query(`
+        CREATE TABLE IF NOT EXISTS counting_tasks (
+            countingTaskId SERIAL PRIMARY KEY,
+            creationDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            assignedToUserId VARCHAR(50),
+            taskName VARCHAR(50),
+            priority VARCHAR(50),
+            comment VARCHAR(250),
+            assignedToUserName TEXT,
+            location TEXT NOT NULL,
+            status VARCHAR(20) CHECK (status IN ('open', 'in_progress', 'completed', 'await_approval', 'approved', 'recheck')) NOT NULL
+        );
+        `);
+
+        await pool.query(`
+        CREATE TABLE IF NOT EXISTS counting_task_items (
+            id SERIAL PRIMARY KEY,
+            countingTaskId INTEGER REFERENCES counting_tasks(countingTaskId) ON DELETE CASCADE,
+            GTIN VARCHAR(50) REFERENCES products(GTIN) ON DELETE CASCADE,
+            expectedQuantity INT NOT NULL,
+            countedQuantity INT DEFAULT NULL,
+            countedStatus VARCHAR(20) CHECK (countedStatus IN ('open', 'counted', 'await_approval', 'approved', 'recheck'))
+        );
+        `);
+
+        console.log("Tables are set up.");
+    } catch (error) {
+        console.error("Error creating tables:", error);
+    }
+})();
 
 //// insert data
 //pool.query(`
@@ -341,10 +386,21 @@ app.post("/api/tasks/recheck", async (req, res) => {
     try {
         await pool.query("BEGIN");
 
+        // Fetch all tasks
+        const tasksResult = await pool.query(
+            `SELECT * FROM counting_tasks WHERE countingTaskId = $1`,
+            [currentTaskId] //WHERE status = 'open'
+        );
+
+        const taskName = tasksResult.rows[0].taskname;
+        const priority = tasksResult.rows[0].priority;
+        const comment = tasksResult.rows[0].comment;
+
+
         const taskResult = await pool.query(
-            `INSERT INTO counting_tasks (location, status)
-       VALUES ($1, 'open') RETURNING countingTaskId`,
-            [location]
+            `INSERT INTO counting_tasks (location,taskName, priority,comment, status)
+       VALUES ($1, $2, $3, $4, 'open') RETURNING countingTaskId`,
+            [location,taskName, priority,comment]
         );
 
         const countingTaskId = taskResult.rows[0].countingtaskid;
